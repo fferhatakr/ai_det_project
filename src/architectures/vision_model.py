@@ -1,0 +1,146 @@
+import torch.nn as nn
+import torch
+import torchvision.models as models
+import numpy
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torchvision
+
+#We define the first version of the model.
+class SkinCancerModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer =nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(150528,224),
+        nn.ReLU(),
+        nn.Linear(224,7)
+    )
+    def forward(self, x):
+       x = self.layer(x)
+       return x
+
+#We define the number of classes.
+num_classes = 7
+
+#We define the second version of the model.
+class SkinCancerModelV2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels=3,out_channels=16,kernel_size=3, padding=1)
+        self.relu1 = nn.ReLU()
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32,kernel_size=3,padding=1)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3,padding=1)
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.flatten = nn.Flatten()
+        self.relu4 = nn.ReLU()
+        self.dropout = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(50176,128)
+        self.fc2 = nn.Linear(128,num_classes)
+    #We define the forward pass of the model.
+    def forward(self,x):
+        x = self.conv1(x)
+        x = self.relu1(x)
+        x = self.pool1(x)
+
+        
+        x = self.conv2(x)
+        x = self.relu2(x)
+        x = self.pool2(x)
+        
+        
+        x = self.conv3(x)
+        x = self.relu3(x)
+        x = self.pool3(x)
+
+        
+        x = self.flatten(x)
+
+       
+        x = self.fc1(x)
+        x = self.relu4(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+
+        
+        return x
+
+
+
+#We define the third version of the model.
+class SkinCancerResNet(nn.Module):
+    def __init__(self, num_classes=7):
+        super().__init__()
+        
+        self.resnet18_model = models.resnet18(weights='IMAGENET1K_V1')
+        
+
+        for param in self.resnet18_model.parameters():
+            param.requires_grad = True
+
+        original_fc_layer = self.resnet18_model.fc
+        num_features = original_fc_layer.in_features
+        num_classes = 7
+        new_fc_layer = nn.Linear(in_features=num_features, out_features=num_classes)
+        self.resnet18_model.fc = new_fc_layer
+
+    def forward(self, x):
+        return self.resnet18_model(x)
+    
+
+#We define the fourth version of the model.
+class SkinCancerMobileNet(nn.Module): 
+    def __init__(self, num_classes=7):  
+        super().__init__() 
+        self.mobilenet_model = models.mobilenet_v3_small(weights='IMAGENET1K_V1')
+
+        for param in self.mobilenet_model.parameters():
+            param.requires_grad = True 
+
+        original_fc_layer = self.mobilenet_model.classifier[-1]
+        num_features = self.mobilenet_model.classifier[-1].in_features
+        num_classes = 7 
+        new_fc_layer = nn.Linear(in_features=num_features, out_features=num_classes) 
+        self.mobilenet_model.classifier[-1] = new_fc_layer 
+
+    def forward(self, x): 
+        return self.mobilenet_model(x) 
+
+
+
+
+"""
+Some may wonder why we rejected DenseNet. Our aim is to release 
+this project as a mobile application. We chose MobileNet because 
+DenseNet could experience significant optimisation issues on certain devices.
+"""
+#Define the fifth version of the model.
+class  DermaScanModel(nn.Module):
+    def __init__(self): 
+        super().__init__()
+
+
+        pretrained = torchvision.models.mobilenet_v3_small(weights='IMAGENET1K_V1')
+        self.backbone = pretrained.features #We are using the features of the pre-trained model.
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1,1)),
+            nn.Flatten(),
+            nn.Dropout(0.2),
+            nn.Linear(1024,7)
+        )
+
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.classifier(x)
+        return x
